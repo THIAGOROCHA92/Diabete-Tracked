@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitor de Diabetes</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="manifest" href="manifest.json">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+            text-align: center;
+        }
+        .container {
+            max-width: 400px;
+            margin: 20px auto;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        h2 {
+            color: #2c3e50;
+        }
+        input, button {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        button {
+            background-color: #27ae60;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #2ecc71;
+        }
+        canvas {
+            max-width: 100%;
+        }
+        .alert {
+            color: red;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Monitor de Diabetes</h2>
+        <p>Registre seus níveis de glicose</p>
+        <input type="number" id="glucose" placeholder="Digite o nível de glicose">
+        <button onclick="saveGlucose()">Salvar</button>
+        <p id="status"></p>
+        <p id="alert" class="alert"></p>
+        <canvas id="glucoseChart"></canvas>
+    </div>
+    
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('service-worker.js').then(() => {
+                console.log('Service Worker registrado com sucesso');
+            }).catch(error => {
+                console.log('Erro ao registrar Service Worker:', error);
+            });
+        }
+
+        let glucoseData = JSON.parse(localStorage.getItem('glucoseData')) || [];
+        let timeLabels = JSON.parse(localStorage.getItem('timeLabels')) || [];
+        
+        const ctx = document.getElementById('glucoseChart').getContext('2d');
+        let glucoseChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: timeLabels,
+                datasets: [{
+                    label: 'Nível de Glicose (mg/dL)',
+                    data: glucoseData,
+                    borderColor: 'blue',
+                    fill: false
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: { beginAtZero: false }
+                }
+            }
+        });
+
+        function saveGlucose() {
+            let glucoseLevel = document.getElementById('glucose').value;
+            if (glucoseLevel) {
+                let now = new Date().toLocaleTimeString();
+                glucoseData.push(glucoseLevel);
+                timeLabels.push(now);
+                localStorage.setItem('glucoseData', JSON.stringify(glucoseData));
+                localStorage.setItem('timeLabels', JSON.stringify(timeLabels));
+                glucoseChart.update();
+                document.getElementById('status').innerText = `Último nível registrado: ${glucoseLevel} mg/dL`;
+                checkAlert(glucoseLevel);
+            } else {
+                alert("Por favor, insira um valor válido.");
+            }
+        }
+
+        function checkAlert(value) {
+            let alertBox = document.getElementById('alert');
+            if (value < 70) {
+                alertBox.innerText = "Alerta: Hipoglicemia detectada!";
+                showNotification("Alerta: Hipoglicemia!", "Seu nível de glicose está muito baixo!");
+            } else if (value > 180) {
+                alertBox.innerText = "Alerta: Hiperglicemia detectada!";
+                showNotification("Alerta: Hiperglicemia!", "Seu nível de glicose está muito alto!");
+            } else {
+                alertBox.innerText = "";
+            }
+        }
+
+        function showNotification(title, message) {
+            if ("Notification" in window) {
+                if (Notification.permission === "granted") {
+                    new Notification(title, { body: message });
+                } else if (Notification.permission !== "denied") {
+                    Notification.requestPermission().then(permission => {
+                        if (permission === "granted") {
+                            new Notification(title, { body: message });
+                        }
+                    });
+                }
+
+            }
+        }
+    </script>
+</body>
+</html>
